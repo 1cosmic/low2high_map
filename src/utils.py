@@ -1,0 +1,134 @@
+# Utils for meta-use in other modules.
+import os
+import glob
+
+import numpy as np
+from osgeo import gdal
+from enum import Enum
+
+
+# Constants
+GEO_DATA = 1
+DEFAULT_PATH = {'images': '../data/input/images_10m/Sentinel_Samara',
+                'labels': '../data/input/labels_230m',
+                'processing': '../data/processing/',
+                'output': '../data/output/'}
+
+
+def check_output():
+    pass
+
+def create_output():
+    pass
+
+
+def init():
+    print("Initialization...")
+    for path in DEFAULT_PATH.values():
+        if not os.path.exists(path):
+            os.makedirs(path)
+            print(f"Created directory: {path}")
+    else:
+        print("All's initialized.")
+
+
+def cut_map_by(src, by, out, mode='mode', resize=False):
+    gt = by['transform']
+    size_x = by['size_x']
+    size_y = by['size_y']
+    bounds = [gt[0], gt[3] + gt[5] * size_y,      # minX, minY
+              gt[0] + gt[1] * size_x, gt[3]]      # maxX, maxY
+
+    gdal.Warp(
+        out,
+        src,
+        outputBounds=bounds,
+        dstSRS=by['projection'],
+        xRes=gt[1] if resize else None,
+        yRes=gt[5] if resize else None,
+        resampleAlg=mode if resize else None,
+        dstNodata=0)
+    print(f"Map cutted and saved to {out}")
+
+
+def load_data_tif(data: str, load_first=False, return_first=False):
+    # Load data and geoinfo from the specified path
+    if not os.path.exists(data):
+        raise ValueError(f"Path not found: {data}")
+
+    results = []
+    if os.path.isfile(data):
+        data_files = [data]
+    else:
+        data_files = glob.glob(os.path.join(data, '*.tif'))
+        if load_first:
+            data_files = data_files[:1]
+        if not data_files:
+            raise ValueError(f"No data files found in path: {data}")
+
+    for tif in data_files:
+        print(f"Loading file: {tif}")
+        src = gdal.Open(tif)
+        array = src.ReadAsArray()
+
+        results.append((tif, {
+            "array": array,
+            "size_x": src.RasterXSize,
+            "size_y": src.RasterYSize,
+            "transform": src.GetGeoTransform(),
+            "projection": src.GetProjection(),
+            "path": tif
+        }))
+        src = None  # Release GDAL dataset
+
+    if return_first:
+        return results[0]
+    else:
+        return results
+
+
+def save_data_tif(data: dict, path: str):
+    # Save data to the specified path
+    if not os.path.exists(os.path.dirname(path)):
+        os.makedirs(os.path.dirname(path))
+
+    src = data['array']
+    if len(src.shape) == 2:
+        bands = 1
+    elif len(src.shape) == 3:
+        bands = src.shape
+    else:
+        raise ValueError("Data must be 2D or 3D numpy array")
+
+    driver = gdal.GetDriverByName('GTiff')
+    out = driver.Create(path, data['size_x'], data['size_y'], bands, gdal.GDT_Byte)
+    out.SetGeoTransform(data['transform'])
+    out.SetProjection(data['projection'])
+
+    if bands == 1:
+        out.GetRasterBand(1).WriteArray(src)
+    else:
+        for i in range(bands):
+            out.GetRasterBand(i + 1).WriteArray(src[i])
+
+    out.FlushCache()
+    print(f"Data saved to {path}")
+
+
+def test_gdal_warp():
+
+    src = DEFAULT_PATH['labels'] + '/landcover23c_v571_2019.Samara.tif'
+    mask = DEFAULT_PATH['images'] + '/2023_05_0510_comp.b2.tif'
+    out = DEFAULT_PATH['output'] + 'crop.tif'
+
+    gdal.Warp(
+        out,
+        src,
+        cutlineDSName=mask,   # vector/mask as boundary
+        cropToCutline=True,   # shrink to mask extent
+        dstNodata=0
+    )
+
+
+def test():
+    load_data_tif(DEFAULT_PATH['images'], test=True)
