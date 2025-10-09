@@ -32,12 +32,14 @@ def init():
         print("All's initialized.")
 
 
-def cut_map_by(src, by, out, mode='mode', resize=False):
-    gt = by['transform']
+def cut_tif_by(src, by, out, gt=None, mode='mode', resize=False):
     size_x = by['size_x']
     size_y = by['size_y']
-    bounds = [gt[0], gt[3] + gt[5] * size_y,      # minX, minY
-              gt[0] + gt[1] * size_x, gt[3]]      # maxX, maxY
+    
+    bounds = None
+    if gt is not None:
+        bounds = [gt[0], gt[3] + gt[5] * size_y,      # minX, minY
+                gt[0] + gt[1] * size_x, gt[3]]      # maxX, maxY
 
     gdal.Warp(
         out,
@@ -51,7 +53,7 @@ def cut_map_by(src, by, out, mode='mode', resize=False):
     print(f"Map cutted and saved to {out}")
 
 
-def load_data_tif(data: str, load_first=False, return_first=False):
+def load_data_tif(data: str, transform: tuple = (), load_first=False, return_first=False):
     # Load data and geoinfo from the specified path
     if not os.path.exists(data):
         raise ValueError(f"Path not found: {data}")
