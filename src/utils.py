@@ -12,6 +12,9 @@ GEO_DATA = 1
 DEFAULT_PATH = {'images': '../data/input/images_10m/Sentinel_Samara',
                 'labels': '../data/input/labels_230m',
                 'processing': '../data/processing/',
+                'cropped_labels': '../data/processing/cropped_labels/',
+                'resized_images': '../data/processing/resized/images/',
+                'resized_labels': '../data/processing/resized/labels/',
                 'output': '../data/output/'}
 
 
@@ -32,14 +35,13 @@ def init():
         print("All's initialized.")
 
 
-def cut_tif_by(src, by, out, gt=None, mode='mode', resize=False):
+def cut_tif_by(src, by, out, mode='mode', resize=False):
+
     size_x = by['size_x']
     size_y = by['size_y']
-    
-    bounds = None
-    if gt is not None:
-        bounds = [gt[0], gt[3] + gt[5] * size_y,      # minX, minY
-                gt[0] + gt[1] * size_x, gt[3]]      # maxX, maxY
+    gt = by['transform']
+    bounds = [gt[0], gt[3] + gt[5] * size_y,      # minX, minY
+            gt[0] + gt[1] * size_x, gt[3]]      # maxX, maxY
 
     gdal.Warp(
         out,
@@ -53,7 +55,7 @@ def cut_tif_by(src, by, out, gt=None, mode='mode', resize=False):
     print(f"Map cutted and saved to {out}")
 
 
-def load_data_tif(data: str, transform: tuple = (), load_first=False, return_first=False):
+def load_data_tif(data: str, load_first=False):
     # Load data and geoinfo from the specified path
     if not os.path.exists(data):
         raise ValueError(f"Path not found: {data}")
@@ -71,19 +73,18 @@ def load_data_tif(data: str, transform: tuple = (), load_first=False, return_fir
     for tif in data_files:
         print(f"Loading file: {tif}")
         src = gdal.Open(tif)
-        array = src.ReadAsArray()
-
-        results.append((tif, {
-            "array": array,
+        results.append({
+            "path": tif,
+            "array": src.ReadAsArray(),
             "size_x": src.RasterXSize,
             "size_y": src.RasterYSize,
             "transform": src.GetGeoTransform(),
             "projection": src.GetProjection(),
-            "path": tif
-        }))
-        src = None  # Release GDAL dataset
+        })
+        src = None  # clear memory
+    print("Files was loaded.")
 
-    if return_first:
+    if load_first:
         return results[0]
     else:
         return results
@@ -115,22 +116,3 @@ def save_data_tif(data: dict, path: str):
 
     out.FlushCache()
     print(f"Data saved to {path}")
-
-
-def test_gdal_warp():
-
-    src = DEFAULT_PATH['labels'] + '/landcover23c_v571_2019.Samara.tif'
-    mask = DEFAULT_PATH['images'] + '/2023_05_0510_comp.b2.tif'
-    out = DEFAULT_PATH['output'] + 'crop.tif'
-
-    gdal.Warp(
-        out,
-        src,
-        cutlineDSName=mask,   # vector/mask as boundary
-        cropToCutline=True,   # shrink to mask extent
-        dstNodata=0
-    )
-
-
-def test():
-    load_data_tif(DEFAULT_PATH['images'], test=True)

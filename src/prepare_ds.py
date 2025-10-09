@@ -1,6 +1,8 @@
 # For preparation of dataset
 
-from utils import init, load_data_tif, cut_map_by, save_data_tif, DEFAULT_PATH, GEO_DATA
+import glob
+import os
+from utils import init, load_data_tif, cut_tif_by, save_data_tif, DEFAULT_PATH, GEO_DATA
 import visualisation as vis
 import numpy as np
 
@@ -43,39 +45,42 @@ def create_mask(label: dict, image: dict,
     return mask
 
 
-def load_resized_data_labels(data=DEFAULT_PATH['images'], labels=DEFAULT_PATH['labels'], mask=np.array([]), mode='random', resize='by_label', percent=0.1):
+def load_resized_data_labels(images=DEFAULT_PATH['images'], labels=DEFAULT_PATH['labels'], mask=np.array([]), mode='random', resize='by_label', percent=0.1):
 
-    data = load_data_tif(data)
-    labels = load_data_tif(labels)
+    images = glob.glob(os.path.join(images, '*.tif'))
+    labels = glob.glob(os.path.join(labels, '*.tif'))
 
-    # Resize for test: low/high resolution of map.
-    print()
+    print("\nCropping labels by 1st image:")
+    for label in labels:
+        name = os.path.basename(label)
+        out = DEFAULT_PATH['cropped_labels'] + name
+        cut_tif_by(label, load_data_tif(images[0], load_first=True), out)
+    print("Cropping done. Loading in memory...")
+    labels = load_data_tif(DEFAULT_PATH['cropped_labels'])
+
     if resize == 'by_label':
-        print("Resizing images by label...")
-        for i in range(len(data)):
-            image = DEFAULT_PATH['processing'] + f'image_by_label_{i}.tif'
-            cut_map_by(data[i][0], labels[0][GEO_DATA], image, resize=True)
-            data[i] = load_data_tif(image, return_first=True)
-        print("Images resized by label.\n")
+        print("\nResizing images by 1st label:")
+        sources = images
+        by = labels[0]
+        resize_path = 'resized_images'
 
     elif resize == 'by_image':
-        print("Resizing labels by image...")
-        for i in range(len(labels)):
-            label = DEFAULT_PATH['processing'] + f'label_by_image{i}.tif'
-            cut_map_by(labels[i][0], data[0][GEO_DATA], label, resize=True)
-            labels[i] = load_data_tif(label, return_first=True)
-        print("Labels resized by image.\n")
+        print("\nResizing labels by 1st image:")
+        sources = labels
+        by = load_data_tif(images[0], load_first=True)
+        resize_path = 'resized_labels'
 
-    # if mode == 'random':
-    #     pass
+    for src in sources:
+        name = os.path.basename(src)
+        out = DEFAULT_PATH[resize_path] + name
+        cut_tif_by(src, by, out, resize=True)
 
-    # elif mode == 'stratified':
-    #     pass
+    print("Resizing done. Loading in memory...")
+    images = load_data_tif(DEFAULT_PATH['resized_images'])
 
-    # elif mode == 'balanced':
-    #     pass
-
-    return data, labels
+    print(images)
+    print(labels)
+    return images, labels
 
 
 def preparation_dataset(mask_mode='random', resize='by_label', percent=0.01):
@@ -83,12 +88,12 @@ def preparation_dataset(mask_mode='random', resize='by_label', percent=0.01):
 
     print("Loading & preparing image data...")
     data, labels = load_resized_data_labels(resize=resize)
-    print("Data and labels prepared.\n")
+    print("\nData and labels prepared.\n")
 
     print("Creating mask...")
     mask_tif = DEFAULT_PATH['processing'] + 'mask_only_filled.tif'
-    image = data[0][GEO_DATA]
-    label = labels[0][GEO_DATA]
+    image = data[0]
+    label = labels[0]
     mask = create_mask(label, image, mode=mask_mode, percent=percent, output=mask_tif)
     print("Mask created.\n")
 
@@ -99,7 +104,7 @@ def preparation_dataset(mask_mode='random', resize='by_label', percent=0.01):
     # TODO: process data to numpy arrays for training
     # ...
 
-    return None
+    return data, labels
 
 
 # TODO: extract bottom to test module
