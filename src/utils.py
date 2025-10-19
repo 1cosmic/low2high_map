@@ -55,7 +55,7 @@ def cut_tif_by(src, by, out, mode='mode', resize=False):
     print(f"Map cutted and saved to {out}")
 
 
-def load_data_tif(data: str, load_first=False):
+def load_data_tif(data: str,  load_first=False):
     # Load data and geoinfo from the specified path
     if not os.path.exists(data):
         raise ValueError(f"Path not found: {data}")
