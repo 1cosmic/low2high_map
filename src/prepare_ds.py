@@ -3,7 +3,6 @@
 import glob
 import os
 from utils import init, load_data_tif, cut_tif_by, save_data_tif, DEFAULT_PATH, GEO_DATA
-import visualisation as vis
 import numpy as np
 
 init()
@@ -86,61 +85,41 @@ def load_resized_data_labels(data=DEFAULT_PATH['images'], labels=DEFAULT_PATH['l
     return data, labels
 
 
-def zip_dataset(data: dict, labels: dict, mask: np.ndarray):
+def stack_and_zip(data: list, labels: list, mask: np.ndarray):
 
     print("Zipping dataset by mask...")
-    zip_data = [d['array'][mask > 0] for d in data]
-    zip_labels = [l['array'][mask > 0] for l in labels]
-
-    print("create tensor by bands:")
+    print("create tensor by bands")
     tensor = {}
     for d in data:
         band_name = d['path'].replace('..', '').split('.')[1]
         # print(band_name)
-        layer = d['array'][mask > 0]
+        layer = d['array']
         if band_name in tensor.keys():
             tensor[band_name] = np.dstack((tensor[band_name], layer))
         else:
             tensor[band_name] = layer
 
-    # zip_data = np.array([tensor[band] for band in tensor.keys()])  # shape (4 x n)
     zip_data = np.dstack([tensor[band] for band in tensor.keys()])   # shape (n x 4)
-    zip_data = np.squeeze(zip_data)     # TODO: remove it after adding of layer-year
-    # TODO: do shape (pixel x band x year)!
-
+    zip_data = np.squeeze(zip_data)
+    zip_labels = [l['array'] for l in labels]
     zip_labels = np.squeeze(np.array(zip_labels))
 
-    print("Size dataset before -> after zip:")
+    zip_data = zip_data[mask > 0]
+    zip_labels = zip_labels[mask > 0]
+
+    print(f"Size dataset before -> after zip by mask:")
     print("data:", data[0]['array'].size * len(data), '->', zip_data.size, '| bands:', len(tensor.keys()), '| shape:', zip_data.shape)
     print("labels:", labels[0]['array'].size * len(labels), '->', zip_labels.size, '| shape:', zip_labels.shape)
     
     return zip_data, zip_labels
 
 
-def preparation_dataset(mask_mode='random', resize='by_label', percent=0.01):
-    # Preparation of dataset for training, transform for numpy.
+def iteration_dataset(mask_mode='random', resize='by_label', percent=0.01):
+    # Iteration of dataset for training with transform data to tensor.
 
     data, labels = load_resized_data_labels(resize=resize)
     out_mask = DEFAULT_PATH['output'] + f'mask_only_filled_{mask_mode}_{percent}.tif'
     mask = create_mask(labels[0], data[0], mode=mask_mode, percent=percent, output=out_mask)
-    zip_data, zip_labels = zip_dataset(data, labels, mask)
+    zip_data, zip_labels = stack_and_zip(data, labels, mask)
 
-    # TODO: process data to numpy arrays for training
-    # ...
-
-    return zip_data, zip_labels
-
-
-# TODO: extract bottom to test module
-def test_create_mask(percent=0.01):
-    # Test function
-
-    label = load_data_tif(DEFAULT_PATH['labels'])[0]
-    data = label[GEO_DATA]
-    mask = create_mask(data['array'], mode='random', percent=percent)
-    out = data.copy()
-    out['array'] = mask
-
-    save_data_tif(out, f"{DEFAULT_PATH['output']}/mask_{percent}.tif")
-    vis.plot_data(data['array'], mask=mask)
-# test_create_mask()
+    return zip_data, zip_labels, data, labels

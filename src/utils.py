@@ -1,21 +1,27 @@
 # Utils for meta-use in other modules.
 import os
 import glob
-
-import numpy as np
 from osgeo import gdal
-from enum import Enum
 
 
 # Constants
 GEO_DATA = 1
-DEFAULT_PATH = {'images': '../data/input/images_10m/Sentinel_Samara',
-                'labels': '../data/input/labels_230m',
-                'processing': '../data/processing/',
-                'cropped_labels': '../data/processing/cropped_labels/',
-                'resized_images': '../data/processing/resized/images/',
-                'resized_labels': '../data/processing/resized/labels/',
-                'output': '../data/output/'}
+
+# Get the directory of the current module
+MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def rel_path(path):
+    return os.path.join(MODULE_DIR, path)
+
+DEFAULT_PATH = {
+    'images': rel_path('../data/input/images_10m/Sentinel_Samara'),
+    'labels': rel_path('../data/input/labels_230m'),
+    'processing': rel_path('../data/processing/'),
+    'cropped_labels': rel_path('../data/processing/cropped_labels/'),
+    'resized_images': rel_path('../data/processing/resized/images/'),
+    'resized_labels': rel_path('../data/processing/resized/labels/'),
+    'output': rel_path('../data/output/')
+}
 
 
 def check_output():
@@ -26,13 +32,13 @@ def create_output():
 
 
 def init():
-    print("Initialization...")
+    print("Initialization paths...")
     for path in DEFAULT_PATH.values():
         if not os.path.exists(path):
             os.makedirs(path)
             print(f"Created directory: {path}")
     else:
-        print("All's initialized.")
+        print("All paths was initialized.")
 
 
 def cut_tif_by(src, by, out, mode='mode', resize=False):
@@ -90,7 +96,7 @@ def load_data_tif(data: str,  load_first=False):
         return results
 
 
-def save_data_tif(data: dict, path: str):
+def save_data_tif(data: dict, path: str, color_palette=None):
     # Save data to the specified path
     if not os.path.exists(os.path.dirname(path)):
         os.makedirs(os.path.dirname(path))
@@ -104,7 +110,7 @@ def save_data_tif(data: dict, path: str):
         raise ValueError("Data must be 2D or 3D numpy array")
 
     driver = gdal.GetDriverByName('GTiff')
-    out = driver.Create(path, data['size_x'], data['size_y'], bands, gdal.GDT_Byte)
+    out = driver.Create(path, data['size_x'], data['size_y'], bands)
     out.SetGeoTransform(data['transform'])
     out.SetProjection(data['projection'])
 
@@ -113,6 +119,14 @@ def save_data_tif(data: dict, path: str):
     else:
         for i in range(bands):
             out.GetRasterBand(i + 1).WriteArray(src[i])
+
+    if color_palette is not None:
+       # Colorpallet
+        colors = gdal.ColorTable()
+        for class_val, rgb in color_palette.items():
+            colors.SetColorEntry(class_val, rgb)
+        out.GetRasterBand(1).SetRasterColorTable(colors)
+        out.GetRasterBand(1).SetRasterColorInterpretation(gdal.GCI_PaletteIndex) 
 
     out.FlushCache()
     print(f"Data saved to {path}")
