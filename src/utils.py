@@ -16,11 +16,13 @@ def rel_path(path):
 DEFAULT_PATH = {
     'images': rel_path('../data/input/images_10m/Sentinel_Samara'),
     'labels': rel_path('../data/input/labels_230m'),
+    'etalons': rel_path('../data/input/etalons'),
     'processing': rel_path('../data/processing/'),
     'cropped_labels': rel_path('../data/processing/cropped_labels/'),
     'resized_images': rel_path('../data/processing/resized/images/'),
     'resized_labels': rel_path('../data/processing/resized/labels/'),
-    'output': rel_path('../data/output/')
+    'resized_etalons': rel_path('../data/processing/resized/etalons/'),
+    'output': rel_path('../data/output/'),
 }
 
 
