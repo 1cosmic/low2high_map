@@ -1,8 +1,10 @@
 # Utils for meta-use in other modules.
 import os
 import glob
+import re
 from osgeo import gdal
-
+import pandas as pd
+import numpy as np
 
 # Constants
 GEO_DATA = 1
@@ -14,9 +16,9 @@ def rel_path(path):
     return os.path.join(MODULE_DIR, path)
 
 DEFAULT_PATH = {
-    'images': rel_path('../data/input/images_10m/Sentinel_Samara'),
-    'labels': rel_path('../data/input/labels_230m'),
-    'etalons': rel_path('../data/input/etalons'),
+    'images': rel_path('../data/input/images_10m/Sentinel_Samara/'),
+    'labels': rel_path('../data/input/labels_230m/label_maps/'),
+    'etalons': rel_path('../data/input/etalons/'),
     'processing': rel_path('../data/processing/'),
     'cropped_labels': rel_path('../data/processing/cropped_labels/'),
     'resized_images': rel_path('../data/processing/resized/images/'),
@@ -24,6 +26,48 @@ DEFAULT_PATH = {
     'resized_etalons': rel_path('../data/processing/resized/etalons/'),
     'output': rel_path('../data/output/'),
 }
+
+
+def parse_tifs_from(path:str, typeof:str, force=False):
+
+    out = DEFAULT_PATH['processing'] + f'path2tif_{typeof}.csv'
+    if os.path.exists(out) and not force:
+        print(f"Load '{typeof}' from cached DataFrame to path: ", out)
+        return pd.read_csv(out)
+
+    if typeof == 'sign':
+        def template(struct, fullpath):
+            return {
+                    'type': typeof,
+                    'reg': int(struct[1]),
+                    'year': int(struct[2]),
+                    'month': int(struct[3]),
+                    'season': struct[4],
+                    'band': struct[6],
+                    'path': fullpath,
+                }
+    elif typeof == 'label':
+        def template(struct, fullpath):
+            return {
+                    'type': typeof,
+                    'reg': 64,
+                    'year': int(struct[2]),
+                    'path': fullpath,
+                }
+    else:
+        raise ValueError('typeof can be only [sign, label]')
+
+    data = []
+    tifs = glob.glob(os.path.join(path, '*.tif'))
+    for t in tifs:
+        # print(t)
+        name = os.path.basename(t)
+        struct = re.split(r'[_.]', name)
+        data.append(template(struct, t))
+    
+    df = pd.DataFrame(data)
+    df.to_csv(out, index=False)
+    return df
 
 
 def check_output():
@@ -44,7 +88,6 @@ def init():
 
 
 def cut_tif_by(src, by, out, mode='mode', resize=False):
-
     size_x = by['size_x']
     size_y = by['size_y']
     gt = by['transform']
@@ -63,7 +106,55 @@ def cut_tif_by(src, by, out, mode='mode', resize=False):
     print(f"Map cutted and saved to {out}")
 
 
-def load_data_tif(data: str,  load_first=False):
+def downgrade_classes(src, out, assign_class, force=False):
+    if os.path.exists(out) and not force:
+        print("\nSkip downgrade of modismap. If need, set force=True")
+        return
+    os.makedirs(out, exist_ok=True)
+
+    print("\nParse .csv of new classes...")
+    new_classes = pd.read_csv(assign_class, delimiter=';')
+    new_classes = new_classes[new_classes["version"] == 5.71]
+    max_old_class = new_classes["class_id"].max()
+    class_mapping = np.zeros(max_old_class + 1, dtype=np.int32)
+    
+    # Fill mapping (assuming class_id is 0-based and continuous in CSV)
+    for _, row in new_classes.iterrows():
+        class_mapping[row["class_id"]] = row["igce_id"]
+    
+    print("Class mapping:")
+    for old_id, new_id in enumerate(class_mapping):
+        print(f"Old class {old_id} → New class {new_id}")
+
+    # Process files
+    files = glob.glob(f"{src}/*.tif")
+    for src_file in files:
+        output_file = os.path.join(out, os.path.basename(src_file))
+        print("\nProcessing:", os.path.basename(src_file))
+        
+        src_ds = gdal.Open(src_file)
+        data = src_ds.GetRasterBand(1).ReadAsArray()
+        driver = gdal.GetDriverByName('GTiff')
+        dst_ds = driver.CreateCopy(output_file, src_ds, 0)
+        
+        # Apply class mapping using vectorized operation
+        output_data = np.zeros_like(data)
+        for old_id in range(len(class_mapping)):
+            output_data[data == old_id] = class_mapping[old_id]
+        unmapped = ~np.isin(data, range(len(class_mapping)))
+        if np.any(unmapped):
+            print(f"Warning: {unmapped.sum()} pixels with unmapped classes")
+            output_data[unmapped] = 0  # Or another default value
+        
+        # Write output
+        dst_ds.GetRasterBand(1).WriteArray(output_data)
+        dst_ds.FlushCache()
+        src_ds = dst_ds = None
+    
+    print("\nAll classes assigned successfully.")
+
+
+def load_data_tif(data: str,  only_first=False):
     # Load data and geoinfo from the specified path
     if not os.path.exists(data):
         raise ValueError(f"Path not found: {data}")
@@ -73,7 +164,7 @@ def load_data_tif(data: str,  load_first=False):
         data_files = [data]
     else:
         data_files = glob.glob(os.path.join(data, '*.tif'))
-        if load_first:
+        if only_first:
             data_files = data_files[:1]
         if not data_files:
             raise ValueError(f"No data files found in path: {data}")
@@ -92,7 +183,7 @@ def load_data_tif(data: str,  load_first=False):
         src = None  # clear memory
     print("Files was loaded.")
 
-    if load_first:
+    if only_first:
         return results[0]
     else:
         return results

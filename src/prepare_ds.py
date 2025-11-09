@@ -47,79 +47,93 @@ def create_mask(label: dict, image: dict,
     return mask
 
 
-def load_resized_data_labels(data=DEFAULT_PATH['images'], labels=DEFAULT_PATH['labels'], mask=np.array([]), mode='random', resize='by_label', percent=0.1):
-
+def load_resized_data_labels(signs, labels, mask=np.array([]), mode='random', force=False, resize='by_label', percent=0.1):
     print("Loading & preparing image data...")
-    data = glob.glob(os.path.join(data, '*.tif'))
-    labels = glob.glob(os.path.join(labels, '*.tif'))
 
-    print("\nCropping labels by 1st image:")
+    print("\nCropping & loading labels by 1st image:")
+    ref_image = load_data_tif(signs[0], only_first=True)
+    cropped_labels = []
     for label in labels:
         name = os.path.basename(label)
         out = DEFAULT_PATH['cropped_labels'] + name
-        cut_tif_by(label, load_data_tif(data[0], load_first=True), out)
-    print("Cropping done. Loading in memory...")
-    labels = load_data_tif(DEFAULT_PATH['cropped_labels'])
+        if not os.path.exists(out) or force:
+            cut_tif_by(label, ref_image, out)
+        else:
+            print("Loading from cache...")
+        cropped_labels.append(load_data_tif(out, only_first=True))
+    labels = cropped_labels
+    print("Crop labels is done.")
 
+    # Downgrade of classes on label-map.
+    
+
+    # Resizing by: label/image.
     if resize == 'by_label':
         print("\nResizing images by 1st label:")
-        sources = data
+        sources = signs
         by = labels[0]
         resize_path = 'resized_images'
 
-    elif resize == 'by_image':
+    elif resize == 'by_sign':
         print("\nResizing labels by 1st image:")
         sources = labels
-        by = load_data_tif(data[0], load_first=True)
+        by = load_data_tif(signs[0], only_first=True)
         resize_path = 'resized_labels'
+    else:
+        raise ValueError("resize can be only [by_sign, by_label]")
 
+    resized = []
     for src in sources:
         name = os.path.basename(src)
         out = DEFAULT_PATH[resize_path] + name
-        cut_tif_by(src, by, out, resize=True)
+        if not os.path.exists(out) or force:
+            cut_tif_by(src, by, out, resize=True)
+        else:
+            print("Loading from cache...")
+        resized.append(load_data_tif(out, only_first=True))
+    print(f"Resizing {resize} is done.")
 
-    print("Resizing done. Loading in memory...")
-    data = load_data_tif(DEFAULT_PATH['resized_images'])
     print("\nData and labels prepared.\n")
+    if resize == 'by_label':
+        return resized, labels
+    elif resize == 'by_sign':
+        return signs, resized
 
-    return data, labels
 
-
-def stack_and_zip(data: list, labels: list, mask: np.ndarray):
+def stack_and_zip(signs: list, labels: list, mask: np.ndarray):
 
     print("Zipping dataset by mask...")
     print("create tensor by bands")
     tensor = {}
-    for d in data:
+    for d in signs:
         band_name = d['path'].replace('..', '').split('.')[1]
-        # print(band_name)
         layer = d['array']
         if band_name in tensor.keys():
             tensor[band_name] = np.dstack((tensor[band_name], layer))
         else:
             tensor[band_name] = layer
 
-    zip_data = np.dstack([tensor[band] for band in tensor.keys()])   # shape (n x 4)
-    zip_data = np.squeeze(zip_data)
+    zip_signs = np.dstack([tensor[band] for band in tensor.keys()])   # shape (n x 4)
+    zip_signs = np.squeeze(zip_signs)
     zip_labels = [l['array'] for l in labels]
     zip_labels = np.squeeze(np.array(zip_labels))
 
-    zip_data = zip_data[mask > 0]
+    zip_signs = zip_signs[mask > 0]
     zip_labels = zip_labels[mask > 0]
 
     print(f"Size dataset before -> after zip by mask:")
-    print("data:", data[0]['array'].size * len(data), '->', zip_data.size, '| bands:', len(tensor.keys()), '| shape:', zip_data.shape)
+    print("signs:", signs[0]['array'].size * len(signs), '->', zip_signs.size, '| bands:', len(tensor.keys()), '| shape:', zip_signs.shape)
     print("labels:", labels[0]['array'].size * len(labels), '->', zip_labels.size, '| shape:', zip_labels.shape)
     
-    return zip_data, zip_labels
+    return zip_signs, zip_labels
 
 
-def iteration_dataset(mask_mode='random', resize='by_label', percent=0.01):
+def generate_dataset(signs, labels, mask_mode='random', resize='by_label', percent=0.01):
     # Iteration of dataset for training with transform data to tensor.
 
-    data, labels = load_resized_data_labels(resize=resize)
+    signs, labels = load_resized_data_labels(signs, labels, resize=resize)
     out_mask = DEFAULT_PATH['output'] + f'mask_only_filled_{mask_mode}_{percent}.tif'
-    mask = create_mask(labels[0], data[0], mode=mask_mode, percent=percent, output=out_mask)
-    zip_data, zip_labels = stack_and_zip(data, labels, mask)
+    mask = create_mask(labels[0], signs[0], mode=mask_mode, percent=percent, output=out_mask)
+    zip_signs, zip_labels = stack_and_zip(signs, labels, mask)
 
-    return zip_data, zip_labels, data, labels
+    return zip_signs, zip_labels, signs, labels

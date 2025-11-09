@@ -3,7 +3,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix
 # import numpy as np
-from prepare_ds import iteration_dataset
+from prepare_ds import generate_dataset
 from utils import DEFAULT_PATH
 
 from joblib import dump, load
@@ -32,7 +32,7 @@ def train_model(data=None, labels=None, model='RF', save=True):
 
     if data is None or labels is None:
         print("Loading and preparing dataset...")
-        data, labels = iteration_dataset(mask_mode='random', resize='by_label', percent=0.01)
+        data, labels = generate_dataset(mask_mode='random', resize='by_label', percent=0.01)
 
     print("Split X, y -> X_train, y_train...")
     X_train, X_test, y_train, y_test = train_test_split(data, labels, shuffle=True, test_size=0.2, random_state=42)
