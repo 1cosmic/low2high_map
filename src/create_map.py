@@ -3,17 +3,7 @@ import joblib
 import numpy as np
 from tqdm import tqdm
 
-from utils import save_data_tif, DEFAULT_PATH
-
-color_palette = {
-    0: (255, 0, 0),       # Class 0 (ошибки): FF0000
-    1: (98, 111, 71),     # Class 1 (лес): 626F47
-    2: (232, 184, 109),   # Class 2 (пахотные): E8B86D
-    3: (210, 255, 114),   # Class 3 (луг): D2FF72
-    4: (3, 174, 210),     # Class 4 (вода): 03AED2
-    5: (179, 200, 207),   # Class 5 (урбанизация): B3C8CF
-    6: (253, 250, 246)    # Class 6 (прочие): FDFAF6
-}
+from utils import save_tif, color_palette, DEFAULT_PATH
 
 
 def create_map(images: dict, model, name: str, count_chunks=2):
@@ -45,4 +35,7 @@ def create_map(images: dict, model, name: str, count_chunks=2):
     
     out_img = images[0]
     out_img['array'] = predict_map
-    save_data_tif(out_img, DEFAULT_PATH['output'] + name, color_palette)
+    name = DEFAULT_PATH['output'] + name 
+    save_tif(out_img, name, color_palette)
+
+    return name

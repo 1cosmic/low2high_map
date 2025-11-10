@@ -12,6 +12,17 @@ GEO_DATA = 1
 # Get the directory of the current module
 MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+color_palette = {
+    0: (0, 0, 0),         # Class None: #000000
+    1: (1, 143, 51),      # Class Forest: #018f33
+    2: (252, 155, 1),     # Class Land Ownership (землевладения): #fc9b01
+    3: (254, 249, 1),     # Class Meadows (луговые): #fef901
+    4: (31, 5, 254),      # Class Water: #1f05fe
+    5: (220, 16, 16),     # Class Urbanization: #dc1010
+    6: (1, 247, 254)      # Class Other: #01f7fe
+}
+
+
 def rel_path(path):
     return os.path.join(MODULE_DIR, path)
 
@@ -20,10 +31,10 @@ DEFAULT_PATH = {
     'labels': rel_path('../data/input/labels_230m/label_maps/'),
     'etalons': rel_path('../data/input/etalons/'),
     'processing': rel_path('../data/processing/'),
-    'cropped_labels': rel_path('../data/processing/cropped_labels/'),
+    'cropped_labels': rel_path('../data/processing/cropped/labels/'),
     'resized_images': rel_path('../data/processing/resized/images/'),
     'resized_labels': rel_path('../data/processing/resized/labels/'),
-    'resized_etalons': rel_path('../data/processing/resized/etalons/'),
+    'cropped_etalons': rel_path('../data/processing/cropped/etalons/'),
     'output': rel_path('../data/output/'),
 }
 
@@ -36,7 +47,7 @@ def parse_tifs_from(path:str, typeof:str, force=False):
         return pd.read_csv(out)
 
     if typeof == 'sign':
-        def template(struct, fullpath):
+        def template_sign(struct, fullpath):
             return {
                     'type': typeof,
                     'reg': int(struct[1]),
@@ -46,16 +57,50 @@ def parse_tifs_from(path:str, typeof:str, force=False):
                     'band': struct[6],
                     'path': fullpath,
                 }
+        template = template_sign
+
     elif typeof == 'label':
-        def template(struct, fullpath):
+        def template_label(struct, fullpath):
             return {
                     'type': typeof,
                     'reg': 64,
                     'year': int(struct[2]),
                     'path': fullpath,
                 }
+        template = template_label
+
+    elif typeof == 'tile':
+        def template_tile(struct, fullpath):
+            # struct: ['comp', 's2', '90d', 'b8', 'l2a', 'med', 'frag', '0', 'tif']
+            band_map = {
+                'b2': 'b',
+                'b3': 'g',
+                'b4': 'r',
+                'b8': 'n',
+                'b11': 'swir1',
+                'b12': 'swir2'
+            }
+            return {
+                'type': typeof,
+                'period': struct[2],
+                'band': band_map[struct[3]],
+                'fragment': struct[7],
+                'path': fullpath,
+            }
+        template = template_tile
+
+    elif typeof == 'etalon':
+        def template_etalon(struct, fullpath):
+            # struct: ['r36000', '2020', 'wc', 'cor', 'tif']
+            return {
+                'type': typeof,
+                'year': struct[1],
+                'map': struct[2],
+                'path': fullpath,
+            }
+        template = template_etalon
     else:
-        raise ValueError('typeof can be only [sign, label]')
+        raise ValueError('typeof can be only [sign, label, tile, etalon]')
 
     data = []
     tifs = glob.glob(os.path.join(path, '*.tif'))
@@ -108,7 +153,7 @@ def cut_tif_by(src, by, out, mode='mode', resize=False):
 
 def downgrade_classes(src, out, assign_class, force=False):
     if os.path.exists(out) and not force:
-        print("\nSkip downgrade of modismap. If need, set force=True")
+        print("\nSkip downgrade the map of MODIS. If need, set force=True")
         return
     os.makedirs(out, exist_ok=True)
 
@@ -146,15 +191,22 @@ def downgrade_classes(src, out, assign_class, force=False):
             print(f"Warning: {unmapped.sum()} pixels with unmapped classes")
             output_data[unmapped] = 0  # Or another default value
         
-        # Write output
+        # Write output.
         dst_ds.GetRasterBand(1).WriteArray(output_data)
+
+        # Apply new colors.
+        colors = gdal.ColorTable()
+        for class_val, rgb in color_palette.items():
+            colors.SetColorEntry(class_val, rgb)
+        out.GetRasterBand(1).SetRasterColorTable(colors)
+        out.GetRasterBand(1).SetRasterColorInterpretation(gdal.GCI_PaletteIndex)  
         dst_ds.FlushCache()
         src_ds = dst_ds = None
     
     print("\nAll classes assigned successfully.")
 
 
-def load_data_tif(data: str,  only_first=False):
+def load_tif(data: str,  only_first=False):
     # Load data and geoinfo from the specified path
     if not os.path.exists(data):
         raise ValueError(f"Path not found: {data}")
@@ -189,7 +241,7 @@ def load_data_tif(data: str,  only_first=False):
         return results
 
 
-def save_data_tif(data: dict, path: str, color_palette=None):
+def save_tif(data: dict, path: str, color_palette=None):
     # Save data to the specified path
     if not os.path.exists(os.path.dirname(path)):
         os.makedirs(os.path.dirname(path))
@@ -209,12 +261,12 @@ def save_data_tif(data: dict, path: str, color_palette=None):
 
     if bands == 1:
         out.GetRasterBand(1).WriteArray(src)
+        out.GetRasterBand(1).SetNoDataValue(0)
     else:
         for i in range(bands):
             out.GetRasterBand(i + 1).WriteArray(src[i])
 
     if color_palette is not None:
-       # Colorpallet
         colors = gdal.ColorTable()
         for class_val, rgb in color_palette.items():
             colors.SetColorEntry(class_val, rgb)

@@ -1,36 +1,77 @@
+# Module of validation the predicted maps by etalon maps.
+
 from sklearn.metrics import confusion_matrix, classification_report
 import numpy as np
 import glob
 import os
 
-from utils import DEFAULT_PATH, cut_tif_by, load_data_tif
+from utils import DEFAULT_PATH, cut_tif_by, load_tif, save_tif
+from utils import parse_tifs_from, color_palette
 
 
 def validate_how_array(predicted, etalon):
     if predicted.shape != etalon.shape:
         raise Exception(f"Shape of 'predicted' {predicted.shape} != {etalon.shape} 'etalon'.")
     
-    return {'classification_report': classification_report(predicted, etalon),
-            'confusion_matrix': confusion_matrix(predicted, etalon)}
+    mask = predicted > 0
+    etalon = etalon[mask]
+    predicted = predicted[mask]
+
+    if len(predicted.shape) > 1:
+        predicted = predicted.reshape(-1)
+    elif len(etalon.shape) > 1:
+        etalon = etalon.reshape(-1)
+    
+    return {'class_report': classification_report(predicted, etalon),
+            'conf_matrix': confusion_matrix(predicted, etalon)}
 
 
-def cut_etalons_in_path(predicted, etalons=None):
-    etalons = DEFAULT_PATH['etalons'] if etalons is None else etalons
-    etalons = glob.glob(os.path.join(etalons, '*.tif'))
+def cut_etalons(predicted, etalons, force=False):
+    # etalons = glob.glob(os.path.join(etalons, '*.tif'))
+    cropped_dir = DEFAULT_PATH['cropped_etalons']
 
+    cropped_etalons = []
     for etalon in etalons:
         name = os.path.basename(etalon)
-        out = DEFAULT_PATH['resized_etalons'] + name
-        cut_tif_by(predicted, etalon, out, mode='mode')
+        out = os.path.join(cropped_dir, name)
+        cropped_etalons.append(out)
+        if not os.path.exists(out) or force:
+            cut_tif_by(etalon, predicted, out, mode='mode')
+        else:
+            print("Etalons will be loaded from cache.")
+    return cropped_etalons
 
-    return glob.glob(os.path.join(DEFAULT_PATH['resized_etalons']))
 
+def validate_how_tif(predicted_path:str, etalons_path:str, year:int, map:str, force=False):
+    predicted = load_tif(predicted_path, only_first=True)
+    etalons = cut_etalons(predicted, etalons_path, force=force)
 
-def validate_how_tif(predicted_path:str, etalons_path:list):
-    etalons = cut_etalons_in_path(predicted_path, etalons_path)
-    loaded_predicted = load_data_tif(predicted_path)
+    if len(etalons) < 1:
+        print("Etalons not found.")
+        return
 
+    predicted_array = predicted['array'] # type: ignore
+    res = {}
     for etalon in etalons:
-        loaded_etalon = load_data_tif(etalon)
-        res = validate_how_array(loaded_predicted, loaded_etalon)
-        print(res)
+        etalon_array = load_tif(etalon, only_first=True)['array'] # type: ignore
+        r = validate_how_array(predicted_array, etalon_array)
+        res[map] = r
+
+    return res
+
+
+def create_diff_map(predicted, etalon, mode='positive'):
+    predicted = load_tif(predicted, only_first=True)
+    etalon = load_tif(etalon, only_first=True)
+
+    pred_arr = predicted['array']
+    etalon_arr = etalon['array']
+    
+    if mode == 'positive':
+        predicted['array'] = np.where(pred_arr == etalon_arr, pred_arr, 0)
+    elif mode == 'negative':
+        predicted['array'] = np.where(pred_arr != etalon_arr, pred_arr, 0)
+    print(predicted['array'].shape)
+    
+    out_name = DEFAULT_PATH['output'] + mode + '_' + os.path.basename(predicted['path'])
+    save_tif(predicted, out_name, color_palette)

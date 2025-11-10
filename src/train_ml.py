@@ -28,11 +28,7 @@ def save_model(model, out=None):
     print("Model was saved: " + out)
 
 
-def train_model(data=None, labels=None, model='RF', save=True):
-
-    if data is None or labels is None:
-        print("Loading and preparing dataset...")
-        data, labels = generate_dataset(mask_mode='random', resize='by_label', percent=0.01)
+def train_model(data, labels, model='RF', save=True):
 
     print("Split X, y -> X_train, y_train...")
     X_train, X_test, y_train, y_test = train_test_split(data, labels, shuffle=True, test_size=0.2, random_state=42)
