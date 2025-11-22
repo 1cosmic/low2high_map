@@ -1,0 +1,13 @@
+type,reg,year,month,season,band,path
+sign,64,2020,6,90d,g,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/reg_64_2020_06_90d_comp.g.tif
+sign,64,2020,6,90d,r,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/reg_64_2020_06_90d_comp.r.tif
+sign,64,2020,6,90d,b,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/reg_64_2020_06_90d_comp.b.tif
+sign,64,2019,2020,win,g,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/reg_64_2019_2020_win_comp.g.tif
+sign,64,2020,6,90d,swir2,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/reg_64_2020_06_90d_comp.swir2.tif
+sign,64,2019,2020,win,r,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/reg_64_2019_2020_win_comp.r.tif
+sign,64,2020,6,90d,swir1,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/reg_64_2020_06_90d_comp.swir1.tif
+sign,64,2019,2020,win,b,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/reg_64_2019_2020_win_comp.b.tif
+sign,64,2019,2020,win,swir1,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/reg_64_2019_2020_win_comp.swir1.tif
+sign,64,2019,2020,win,n,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/reg_64_2019_2020_win_comp.n.tif
+sign,64,2019,2020,win,swir2,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/reg_64_2019_2020_win_comp.swir2.tif
+sign,64,2020,6,90d,n,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/reg_64_2020_06_90d_comp.n.tif

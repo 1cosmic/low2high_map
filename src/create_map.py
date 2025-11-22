@@ -2,11 +2,12 @@
 import joblib
 import numpy as np
 from tqdm import tqdm
+import time
 
 from utils import save_tif, color_palette, DEFAULT_PATH
 
 
-def create_map(images: dict, model, name: str, count_chunks=2):
+def create_map(images: dict, model, name: str, count_chunks=2, with_time=True):
     # model = joblib.load(model)
     X = np.dstack([img['array'] for img in images])
     s_x = X.shape[0]
@@ -21,6 +22,8 @@ def create_map(images: dict, model, name: str, count_chunks=2):
     print("Start create of map...")
     print(f"\nmap size: x = {s_x}, y = {s_y}, bands = {band}, total px={s_x * s_y}")
 
+    start_time = time.time()
+
     MB = pow(1024, 2)
     chunk_s = int(count_chunks * MB) # adjust based on your RAM
     if len(X) < chunk_s:
@@ -32,10 +35,11 @@ def create_map(images: dict, model, name: str, count_chunks=2):
         predict_map[i:i + chunk_s] = model.predict(chunk)
     predict_map = predict_map.reshape((s_x, s_y))
     print("Map is done.")
+    elapsed_time = round((time.time() - start_time) / 60, 1)
     
     out_img = images[0]
     out_img['array'] = predict_map
-    name = DEFAULT_PATH['output'] + name 
-    save_tif(out_img, name, color_palette)
+    name = DEFAULT_PATH['output'] + f'{elapsed_time}min_{name}'
+    save_tif(out_img, name, color_palette=color_palette)
 
     return name

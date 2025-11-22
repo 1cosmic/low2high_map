@@ -22,8 +22,8 @@ def validate_how_array(predicted, etalon):
     elif len(etalon.shape) > 1:
         etalon = etalon.reshape(-1)
     
-    return {'class_report': classification_report(predicted, etalon),
-            'conf_matrix': confusion_matrix(predicted, etalon)}
+    return {'report': classification_report(etalon, predicted),
+            'cf_matrix': confusion_matrix(etalon, predicted)}
 
 
 def cut_etalons(predicted, etalons, force=False):
@@ -42,7 +42,7 @@ def cut_etalons(predicted, etalons, force=False):
     return cropped_etalons
 
 
-def validate_how_tif(predicted_path:str, etalons_path:str, year:int, map:str, force=False):
+def validate_how_tif(predicted_path:str, etalons_path:str, force=False):
     predicted = load_tif(predicted_path, only_first=True)
     etalons = cut_etalons(predicted, etalons_path, force=force)
 
@@ -55,7 +55,7 @@ def validate_how_tif(predicted_path:str, etalons_path:str, year:int, map:str, fo
     for etalon in etalons:
         etalon_array = load_tif(etalon, only_first=True)['array'] # type: ignore
         r = validate_how_array(predicted_array, etalon_array)
-        res[map] = r
+        res[os.path.basename(etalon)] = r
 
     return res
 
@@ -74,4 +74,4 @@ def create_diff_map(predicted, etalon, mode='positive'):
     print(predicted['array'].shape)
     
     out_name = DEFAULT_PATH['output'] + mode + '_' + os.path.basename(predicted['path'])
-    save_tif(predicted, out_name, color_palette)
+    save_tif(predicted, out_name, color_palette=color_palette)

@@ -39,11 +39,12 @@ DEFAULT_PATH = {
 }
 
 
-def parse_tifs_from(path:str, typeof:str, force=False):
+def parse_tifs_from(path:str, typeof:str, force=False, verbose=True):
 
     out = DEFAULT_PATH['processing'] + f'path2tif_{typeof}.csv'
     if os.path.exists(out) and not force:
-        print(f"Load '{typeof}' from cached DataFrame to path: ", out)
+        if verbose:
+            print(f"Load '{typeof}' from cached DataFrame to path: ", out)
         return pd.read_csv(out)
 
     if typeof == 'sign':
@@ -105,13 +106,14 @@ def parse_tifs_from(path:str, typeof:str, force=False):
     data = []
     tifs = glob.glob(os.path.join(path, '*.tif'))
     for t in tifs:
-        # print(t)
         name = os.path.basename(t)
         struct = re.split(r'[_.]', name)
         data.append(template(struct, t))
     
     df = pd.DataFrame(data)
     df.to_csv(out, index=False)
+    if verbose:
+        print(f"Parsed {len(df)} tifs of type '{typeof}' and saved to {out}")
     return df
 
 
@@ -122,17 +124,20 @@ def create_output():
     pass
 
 
-def init():
-    print("Initialization paths...")
+def init(verbose=True):
+    if verbose:
+        print("Initialization paths...")
     for path in DEFAULT_PATH.values():
         if not os.path.exists(path):
             os.makedirs(path)
-            print(f"Created directory: {path}")
+            if verbose:
+                print(f"Created directory: {path}")
     else:
-        print("All paths was initialized.")
+        if verbose:
+            print("All paths was initialized.")
 
 
-def cut_tif_by(src, by, out, mode='mode', resize=False):
+def cut_tif_by(src, by, out, mode='mode', resize=False, verbose=True):
     size_x = by['size_x']
     size_y = by['size_y']
     gt = by['transform']
@@ -148,16 +153,19 @@ def cut_tif_by(src, by, out, mode='mode', resize=False):
         yRes=gt[5] if resize else None,
         resampleAlg=mode if resize else None,
         dstNodata=0)
-    print(f"Map cutted and saved to {out}")
+    if verbose:
+        print(f"Map cutted and saved to {out}")
 
 
-def downgrade_classes(src, out, assign_class, force=False):
+def downgrade_classes(src, out, assign_class, force=False, verbose=True):
     if os.path.exists(out) and not force:
-        print("\nSkip downgrade the map of MODIS. If need, set force=True")
+        if verbose:
+            print("\nSkip downgrade the map of MODIS. If need, set force=True")
         return
     os.makedirs(out, exist_ok=True)
 
-    print("\nParse .csv of new classes...")
+    if verbose:
+        print("\nParse .csv of new classes...")
     new_classes = pd.read_csv(assign_class, delimiter=';')
     new_classes = new_classes[new_classes["version"] == 5.71]
     max_old_class = new_classes["class_id"].max()
@@ -167,15 +175,17 @@ def downgrade_classes(src, out, assign_class, force=False):
     for _, row in new_classes.iterrows():
         class_mapping[row["class_id"]] = row["igce_id"]
     
-    print("Class mapping:")
-    for old_id, new_id in enumerate(class_mapping):
-        print(f"Old class {old_id} → New class {new_id}")
+    if verbose:
+        print("Class mapping:")
+        for old_id, new_id in enumerate(class_mapping):
+            print(f"Old class {old_id} → New class {new_id}")
 
     # Process files
     files = glob.glob(f"{src}/*.tif")
     for src_file in files:
         output_file = os.path.join(out, os.path.basename(src_file))
-        print("\nProcessing:", os.path.basename(src_file))
+        if verbose:
+            print("\nProcessing:", os.path.basename(src_file))
         
         src_ds = gdal.Open(src_file)
         data = src_ds.GetRasterBand(1).ReadAsArray()
@@ -187,7 +197,7 @@ def downgrade_classes(src, out, assign_class, force=False):
         for old_id in range(len(class_mapping)):
             output_data[data == old_id] = class_mapping[old_id]
         unmapped = ~np.isin(data, range(len(class_mapping)))
-        if np.any(unmapped):
+        if np.any(unmapped) and verbose:
             print(f"Warning: {unmapped.sum()} pixels with unmapped classes")
             output_data[unmapped] = 0  # Or another default value
         
@@ -198,15 +208,16 @@ def downgrade_classes(src, out, assign_class, force=False):
         colors = gdal.ColorTable()
         for class_val, rgb in color_palette.items():
             colors.SetColorEntry(class_val, rgb)
-        out.GetRasterBand(1).SetRasterColorTable(colors)
-        out.GetRasterBand(1).SetRasterColorInterpretation(gdal.GCI_PaletteIndex)  
+        dst_ds.GetRasterBand(1).SetRasterColorTable(colors)
+        dst_ds.GetRasterBand(1).SetRasterColorInterpretation(gdal.GCI_PaletteIndex)  
         dst_ds.FlushCache()
         src_ds = dst_ds = None
     
-    print("\nAll classes assigned successfully.")
+    if verbose:
+        print("\nAll classes assigned successfully.")
 
 
-def load_tif(data: str,  only_first=False):
+def load_tif(data: str,  only_first=False, verbose=True):
     # Load data and geoinfo from the specified path
     if not os.path.exists(data):
         raise ValueError(f"Path not found: {data}")
@@ -222,7 +233,8 @@ def load_tif(data: str,  only_first=False):
             raise ValueError(f"No data files found in path: {data}")
 
     for tif in data_files:
-        print(f"Loading file: {tif}")
+        if verbose:
+            print(f"Loading file: {tif}")
         src = gdal.Open(tif)
         results.append({
             "path": tif,
@@ -233,7 +245,8 @@ def load_tif(data: str,  only_first=False):
             "projection": src.GetProjection(),
         })
         src = None  # clear memory
-    print("Files was loaded.")
+    if verbose:
+        print("Files was loaded.")
 
     if only_first:
         return results[0]
@@ -241,7 +254,7 @@ def load_tif(data: str,  only_first=False):
         return results
 
 
-def save_tif(data: dict, path: str, color_palette=None):
+def save_tif(data: dict, path: str, with_bg=False, color_palette=None, verbose=True):
     # Save data to the specified path
     if not os.path.exists(os.path.dirname(path)):
         os.makedirs(os.path.dirname(path))
@@ -261,7 +274,8 @@ def save_tif(data: dict, path: str, color_palette=None):
 
     if bands == 1:
         out.GetRasterBand(1).WriteArray(src)
-        out.GetRasterBand(1).SetNoDataValue(0)
+        if not with_bg:
+            out.GetRasterBand(1).SetNoDataValue(0)
     else:
         for i in range(bands):
             out.GetRasterBand(i + 1).WriteArray(src[i])
@@ -274,4 +288,5 @@ def save_tif(data: dict, path: str, color_palette=None):
         out.GetRasterBand(1).SetRasterColorInterpretation(gdal.GCI_PaletteIndex) 
 
     out.FlushCache()
-    print(f"Data saved to {path}")
+    if verbose:
+        print(f"Data saved to {path}")
