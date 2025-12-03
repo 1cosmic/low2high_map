@@ -38,7 +38,7 @@ def train_model(data, labels, model='RF', save=True, verbose=True):
 
     if verbose:
         print("Split X, y -> X_train, y_train...")
-    X_train, X_test, y_train, y_test = train_test_split(data, labels, shuffle=True, test_size=0.2, random_state=42, stratify=labels)
+    X_train, X_test, y_train, y_test = train_test_split(data, labels, shuffle=True, test_size=0.2, random_state=42)
 
     # TODO: develop it.
     if verbose:
@@ -70,9 +70,10 @@ def analyse_best_model(config_grid, signs_path, labels_path, store_models=True, 
     datasets: dict with keys as param names and values as lists of possible values.
     Example:
         datasets = {
-            'mask_mode': ['random', 'secure'],
+            'mask_mode': ['random', 'secure', 'homogeneous'],
             'r': [1, 2, 3],  # only for secure mode
             'percent': [0.001, 0.01, 0.1...],
+            'homogen_percent': [0.01, 0.1...],
             'resize': ['by_label', 'by_sign'],
             'stratify': [False, True]
         }
@@ -89,9 +90,11 @@ def analyse_best_model(config_grid, signs_path, labels_path, store_models=True, 
         pp = params['percent']
         rz = params['resize']
         st = params['stratify']
+        hp = params['homogen_percent']
 
         if mm != 'secure' and rr > 1:
-            print(f"Skip {mm} with r={rr}")
+            if verbose:
+                print(f"Skip {mm} with r={rr}")
             continue
 
         z_x, z_y, _, _ = generate_dataset(signs_path, labels_path,
@@ -99,7 +102,9 @@ def analyse_best_model(config_grid, signs_path, labels_path, store_models=True, 
             r=rr,
             percent=pp,
             resize=rz,
-            stratify=st, verbose=verbose)
+            stratify=st,
+            homogen_percent=hp,
+            verbose=verbose)
         _, count_classes = np.unique(z_y, return_counts=True)
 
         # Train model and measure time
@@ -112,6 +117,7 @@ def analyse_best_model(config_grid, signs_path, labels_path, store_models=True, 
             'mask_mode': mm,
             'r': rr,
             'percent': pp,
+            'homogen_percent': hp,
             'resize': rz,
             'stratify': st,
             'classes': count_classes,

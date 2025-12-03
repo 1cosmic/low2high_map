@@ -25,10 +25,11 @@ def plot_confusion(matrix):
 
 
 def spyder_eye(datasets, ml_sets):
+    plt.clf()
     if len(datasets) != ml_sets:
         Exception("Lens of datasets != ml_sets")
 
-    fig, axes = plt.subplots(2, 5, figsize=(15, 6))
+    fig, axes = plt.subplots(2, len(datasets), figsize=(4 * len(datasets), 8))
 
     for i in range(len(datasets)):
         # draw 1st line: conf_matrix
@@ -36,11 +37,14 @@ def spyder_eye(datasets, ml_sets):
         heatmap = ml_sets[i]['cf_matrix']
         heatmap = heatmap / heatmap.sum(axis=1)     # normalise it.
 
-        percent = ml_sets[i].get('percent', '')
+        percent = ds.get('percent', '')
         mask_mode = ds.get('mask_mode', '')
         rows = ml_sets[i].get('r', '')
         resize_val = ml_sets[i].get('resize', '')
         im = axes[0, i].imshow(heatmap, cmap='viridis')
+
+        hp = ds.get('homogen_percent', '')
+        radius = ds.get('r', '')
         
         rows, cols = heatmap.shape
         for r in range(rows):
@@ -48,7 +52,7 @@ def spyder_eye(datasets, ml_sets):
                 if heatmap[r, c] > 0.3:
                     axes[0, i].text(c, r, f"{heatmap[r, c]:.2f}", ha='center', va='center')
 
-        title = f"{percent}*{mask_mode}"
+        title = f"{percent}/{hp} of {mask_mode}, r={radius}"
         axes[0, i].set_title(title)
         plt.colorbar(im, ax=axes[0, i])
 

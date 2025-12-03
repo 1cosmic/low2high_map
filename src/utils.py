@@ -21,6 +21,11 @@ color_palette = {
     5: (220, 16, 16),     # Class Urbanization: #dc1010
     6: (1, 247, 254)      # Class Other: #01f7fe
 }
+# convert 0–255 RGB → 0–1 RGB
+color_palette_plot = {
+    k: tuple(np.array(v)/255.0)
+    for k, v in color_palette.items()
+}
 
 
 def rel_path(path):
@@ -28,12 +33,13 @@ def rel_path(path):
 
 DEFAULT_PATH = {
     'images': rel_path('../data/input/images_10m/Sentinel_Samara/'),
-    'labels': rel_path('../data/input/labels_230m/label_maps/'),
+    'labels': rel_path('../data/input/labels_230m/'),
     'etalons': rel_path('../data/input/etalons/'),
     'processing': rel_path('../data/processing/'),
     'cropped_labels': rel_path('../data/processing/cropped/labels/'),
     'resized_images': rel_path('../data/processing/resized/images/'),
     'resized_labels': rel_path('../data/processing/resized/labels/'),
+    'resized_layers': rel_path('../data/processing/resized/layers/'),
     'cropped_etalons': rel_path('../data/processing/cropped/etalons/'),
     'output': rel_path('../data/output/'),
 }
@@ -125,6 +131,8 @@ def create_output():
 
 
 def init(verbose=True):
+    os.environ["OPENBLAS_NUM_THREADS"] = "6"  # Для M1
+    os.environ["OMP_NUM_THREADS"] = "6"
     if verbose:
         print("Initialization paths...")
     for path in DEFAULT_PATH.values():
@@ -254,7 +262,7 @@ def load_tif(data: str,  only_first=False, verbose=True):
         return results
 
 
-def save_tif(data: dict, path: str, with_bg=False, color_palette=None, verbose=True):
+def save_tif(data: dict, path: str, with_bg=False, color_palette=None, verbose=True, save_as_float=False):
     # Save data to the specified path
     if not os.path.exists(os.path.dirname(path)):
         os.makedirs(os.path.dirname(path))
@@ -268,7 +276,11 @@ def save_tif(data: dict, path: str, with_bg=False, color_palette=None, verbose=T
         raise ValueError("Data must be 2D or 3D numpy array")
 
     driver = gdal.GetDriverByName('GTiff')
-    out = driver.Create(path, data['size_x'], data['size_y'], bands)
+    if save_as_float:
+        out = driver.Create(path, data['size_x'], data['size_y'], bands, gdal.GDT_Float32)
+    else:
+        out = driver.Create(path, data['size_x'], data['size_y'], bands)
+
     out.SetGeoTransform(data['transform'])
     out.SetProjection(data['projection'])
 
