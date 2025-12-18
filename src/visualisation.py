@@ -19,7 +19,14 @@ def plot_confusion(matrix):
     # TODO: setup plot
     plt.clf()
 
+    rows, cols = matrix.shape
+    matrix = matrix / matrix.sum(axis=1)     # normalise it
     plt.imshow(matrix)
+    for r in range(rows):
+        for c in range(cols):
+            if matrix[r, c] > 0.3:
+                plt.text(c, r, f"{matrix[r, c]:.2f}", ha='center', va='center')
+
     plt.colorbar()
     plt.show()
 
@@ -52,7 +59,13 @@ def spyder_eye(datasets, ml_sets):
                 if heatmap[r, c] > 0.3:
                     axes[0, i].text(c, r, f"{heatmap[r, c]:.2f}", ha='center', va='center')
 
-        title = f"{percent}/{hp} of {mask_mode}, r={radius}"
+        f1_score = ds.get('f1_score', None)
+        if f1_score is not None:
+            f1_score_str = f"{round(f1_score, 3)}"
+        else:
+            f1_score_str = ""
+
+        title = f"f1: {f1_score_str} | {percent:.02f}% std: {hp:.02f}\nof {mask_mode}, r={radius}"
         axes[0, i].set_title(title)
         plt.colorbar(im, ax=axes[0, i])
 

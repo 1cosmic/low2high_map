@@ -145,7 +145,7 @@ def init(verbose=True):
             print("All paths was initialized.")
 
 
-def cut_tif_by(src, by, out, mode='mode', resize=False, verbose=True):
+def cut_tif_by(src, by, out, mode='mode', resize=10, aligned=False, verbose=True):
     size_x = by['size_x']
     size_y = by['size_y']
     gt = by['transform']
@@ -157,9 +157,10 @@ def cut_tif_by(src, by, out, mode='mode', resize=False, verbose=True):
         src,
         outputBounds=bounds,
         dstSRS=by['projection'],
-        xRes=gt[1] if resize else None,
-        yRes=gt[5] if resize else None,
-        resampleAlg=mode if resize else None,
+        xRes=resize,
+        yRes=resize,
+        resampleAlg=mode,
+        targetAlignedPixels=aligned if aligned else None,
         dstNodata=0)
     if verbose:
         print(f"Map cutted and saved to {out}")
@@ -262,7 +263,7 @@ def load_tif(data: str,  only_first=False, verbose=True):
         return results
 
 
-def save_tif(data: dict, path: str, with_bg=False, color_palette=None, verbose=True, save_as_float=False):
+def save_tif(data: dict, path: str, dtype=None, with_bg=False, color_palette=None, verbose=True):
     # Save data to the specified path
     if not os.path.exists(os.path.dirname(path)):
         os.makedirs(os.path.dirname(path))
@@ -276,10 +277,8 @@ def save_tif(data: dict, path: str, with_bg=False, color_palette=None, verbose=T
         raise ValueError("Data must be 2D or 3D numpy array")
 
     driver = gdal.GetDriverByName('GTiff')
-    if save_as_float:
-        out = driver.Create(path, data['size_x'], data['size_y'], bands, gdal.GDT_Float32)
-    else:
-        out = driver.Create(path, data['size_x'], data['size_y'], bands)
+    dtype = gdal.GDT_Byte if dtype is None else dtype
+    out = driver.Create(path, data['size_x'], data['size_y'], bands, dtype)
 
     out.SetGeoTransform(data['transform'])
     out.SetProjection(data['projection'])

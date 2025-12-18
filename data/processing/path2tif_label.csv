@@ -1,5 +1,5 @@
 type,reg,year,path
-label,64,2023,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/labels_230m/label_maps/downgraded/landcover23c_v571_2023.Samara.tif
-label,64,2019,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/labels_230m/label_maps/downgraded/landcover23c_v571_2019.Samara.tif
-label,64,2021,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/labels_230m/label_maps/downgraded/landcover23c_v571_2021.Samara.tif
-label,64,2020,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/labels_230m/label_maps/downgraded/landcover23c_v571_2020.Samara.tif
+label,64,2023,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/labels_230m/downgraded/landcover23c_v571_2023.Samara.tif
+label,64,2019,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/labels_230m/downgraded/landcover23c_v571_2019.Samara.tif
+label,64,2021,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/labels_230m/downgraded/landcover23c_v571_2021.Samara.tif
+label,64,2020,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/labels_230m/downgraded/landcover23c_v571_2020.Samara.tif

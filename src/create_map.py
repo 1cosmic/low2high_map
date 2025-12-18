@@ -39,7 +39,6 @@ def create_map(images: dict, model, name: str, count_chunks=2, with_time=True):
     
     out_img = images[0]
     out_img['array'] = predict_map
-    name = DEFAULT_PATH['output'] + f'{elapsed_time}min_{name}'
     save_tif(out_img, name, color_palette=color_palette)
 
     return name

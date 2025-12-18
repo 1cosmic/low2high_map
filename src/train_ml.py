@@ -17,7 +17,8 @@ import time
 def select_method(method='RF', verbose=True):
     """With teacher: (RF, Bayers...), without teacher (segmentation)"""
     if method == 'RF':
-        model = RandomForestClassifier(n_estimators=100, random_state=42)
+        model = RandomForestClassifier(n_estimators=100, random_state=42,
+                                       n_jobs=-1)
     else:
         raise ValueError(f"Method not recognized: {method}")
 
