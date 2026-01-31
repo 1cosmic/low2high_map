@@ -1,9 +1,0 @@
-type,period,band,year,month,fragment,path
-tile,90d,b,2020,6,0,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/tiles/39UVV/2020_06_01/comp_s2_90d_b2_l2a_med.frag.0.tif
-tile,90d,r,2020,6,0,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/tiles/39UVV/2020_06_01/comp_s2_90d_b4_l2a_med.frag.0.tif
-tile,90d,n,2020,6,0,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/tiles/39UVV/2020_06_01/comp_s2_90d_b8_l2a_med.frag.0.tif
-tile,90d,g,2020,6,0,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/tiles/39UVV/2020_06_01/comp_s2_90d_b3_l2a_med.frag.0.tif
-tile,90d,b,2020,9,0,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/tiles/39UVV/2020_09_01/comp_s2_90d_b2_l2a_med.frag.0.tif
-tile,90d,r,2020,9,0,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/tiles/39UVV/2020_09_01/comp_s2_90d_b4_l2a_med.frag.0.tif
-tile,90d,n,2020,9,0,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/tiles/39UVV/2020_09_01/comp_s2_90d_b8_l2a_med.frag.0.tif
-tile,90d,g,2020,9,0,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/tiles/39UVV/2020_09_01/comp_s2_90d_b3_l2a_med.frag.0.tif

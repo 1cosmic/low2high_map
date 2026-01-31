@@ -1,9 +1,0 @@
-type,reg,year,month,season,band,path
-sign,64,2020,7,mon,r,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/reg_64_2020_07_mon_comp.r.tif
-sign,64,2020,9,mon,b,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/reg_64_2020_09_mon_comp.b.tif
-sign,64,2020,7,mon,g,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/reg_64_2020_07_mon_comp.g.tif
-sign,64,2020,9,mon,r,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/reg_64_2020_09_mon_comp.r.tif
-sign,64,2020,7,mon,b,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/reg_64_2020_07_mon_comp.b.tif
-sign,64,2020,9,mon,g,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/reg_64_2020_09_mon_comp.g.tif
-sign,64,2020,7,mon,n,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/reg_64_2020_07_mon_comp.n.tif
-sign,64,2020,9,mon,n,/Users/stephenhawking/Coding/ML/low2high_map/src/../data/input/images_10m/Sentinel_Samara/reg_64_2020_09_mon_comp.n.tif
