@@ -1,0 +1,8 @@
+.*
+*.tif
+**/*.tif
+**/*.tiff
+**/*.pyc
+*.pyc
+*.aux.xml
+src/__pycache__
