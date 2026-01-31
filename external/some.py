@@ -110,7 +110,7 @@ def set_color_table(mask_pal, count_cl):
 
     return colors
 
-Палитра:
+# Палитра:
 
 # Apply:
 # if palette:
