@@ -34,7 +34,7 @@ def load_resized_data_labels(signs, labels, force=False, resize='by_label', verb
             if verbose:
                 print("Loading from cache...")
         cropped_labels.append(load_tif(out, only_first=True, verbose=verbose))
-    labels = cropped_labels
+        
     if verbose:
         print("Crop labels is done.")
 
@@ -43,7 +43,7 @@ def load_resized_data_labels(signs, labels, force=False, resize='by_label', verb
         if verbose:
             print("\nResizing images by 1st label:")
         sources = signs
-        by = labels[0]
+        by = cropped_labels[0]
         resize_path = 'resized_images'
 
     elif resize == 'by_sign':
@@ -72,9 +72,10 @@ def load_resized_data_labels(signs, labels, force=False, resize='by_label', verb
     if verbose:
         print("\nData and labels prepared.\n")
     if resize == 'by_label':
-        return resized, labels
+        return resized, cropped_labels
     elif resize == 'by_sign':
-        return signs, resized
+        loaded_signs = [load_tif(s, verbose=verbose, only_first=True) for s in signs]
+        return loaded_signs, resized
     else:
         return [], []
 
@@ -161,7 +162,7 @@ def create_texture_layer(signs, out=None, resize_by=None, force=False, verbose=F
     return res
 
 
-def create_homogeneous_layer(sentinel_red, sentinel_nir, modis_label, force=False, verbose=True):
+def create_homogeneous_layer(sentinel_red, sentinel_nir, modis_label, resize='by_label', force=False, verbose=True):
 
     modis_path = os.path.basename(modis_label['path'])
     out = DEFAULT_PATH['resized_layers'] + 'px_of_std_' + modis_path
@@ -178,19 +179,29 @@ def create_homogeneous_layer(sentinel_red, sentinel_nir, modis_label, force=Fals
         print("Loading red & nir & labels for NDVI...")
     sentinel_red = load_tif(sentinel_red, only_first=True, verbose=verbose)
     sentinel_nir = load_tif(sentinel_nir, only_first=True, verbose=verbose)
-    # modis_label = load_tif(modis_label, only_first=True, verbose=verbose)
 
     r = sentinel_red["array"].astype(np.float32).ravel()
     n = sentinel_nir["array"].astype(np.float32).ravel()
-    l = modis_label['array']
-    shape = l.shape
 
     if verbose:
         print("Creating MODIS index layer and resizing to Sentinel...")
+        
+
+    if verbose:
+        print("create idx for group std on Sentinel-NDVI (10m) by MODIS px (230m)")
+
+    cut_tif_by(modis_label['path'], sentinel_nir, out, resize=230, verbose=verbose)
+    modis_label = load_tif(out, only_first=True, verbose=verbose)
+    l = modis_label['array']
+    shape = l.shape
     idx = np.arange(l.size, dtype=np.uint32)
+
+    if verbose:
+        print("convert 230m idx-layer to 10m, grouped like 230m")
+
     modis_label['array'] = idx.reshape(l.shape)
     save_tif(modis_label, out, dtype=gdal.GDT_UInt32, verbose=verbose)
-    cut_tif_by(out, sentinel_nir, out, verbose=verbose)
+    cut_tif_by(out, sentinel_nir, out, resize=10, verbose=verbose)
     idx = load_tif(out, only_first=True, verbose=verbose)['array'].ravel()
 
     if verbose:
@@ -199,10 +210,10 @@ def create_homogeneous_layer(sentinel_red, sentinel_nir, modis_label, force=Fals
     NDVI = (n - r) / (r + n + 1e-6)
     del r, n, l
     gc.collect()
-
+    print('NDVI min max shape:', NDVI.min(), NDVI.max(), NDVI.shape)
+    
     if verbose:
         print("Preparing data for std calculation...")
-    # mask = NDVI > 1e-6
     count = np.bincount(idx)
 
     # std = sqrt( sum(x_i^2)/n - mean_i^2 )
@@ -214,14 +225,21 @@ def create_homogeneous_layer(sentinel_red, sentinel_nir, modis_label, force=Fals
     std = sum_squares / count - (sum / count)**2
     del sum, sum_squares; gc.collect()
     std = np.sqrt(std)
+    std[std > 1] = 0
     std = std.reshape(shape)
 
     if verbose:
-        print(f"Std statistic: min: {std.min()} | max: {std.max()} | mean: {std.mean()}")
+        print(f"Std statistic: min: {std.min()} | max: {std.max()} | mean: {std.mean()} | shape: {std.shape}")
         print("Saving std layer...")
     
     modis_label['array'] = std.astype(np.float32)
     save_tif(modis_label, out, dtype=gdal.GDT_Float32, verbose=verbose)
+    
+    # If MODIS px to Sentinel, resize grouped std to it.
+    if resize == 'by_sign':
+        cut_tif_by(out, sentinel_nir, out, resize=10, mode='bilinear', verbose=verbose)
+        modis_label = load_tif(out, only_first=True, verbose=verbose)
+        print("Resizing done.")
 
     if verbose:
         print("Std layer created and saved to", out)
@@ -229,7 +247,8 @@ def create_homogeneous_layer(sentinel_red, sentinel_nir, modis_label, force=Fals
 
 
 def create_mask(label: dict, image: dict, percent: float = 0.01, r=1,
-                mode:str = 'random', homogen_layer = None, homogen_percent=0.1, stratify:bool = False, verbose=True) -> np.ndarray:
+                mode:str = 'random', save_mask=False,
+                homogen_layer=None, homogen_percent=0.1, stratify=False, verbose=True) -> np.ndarray:
 
     if verbose:
         print("Creating mask...")
@@ -239,7 +258,7 @@ def create_mask(label: dict, image: dict, percent: float = 0.01, r=1,
     label_array[image_array <= 0] = 0              # work with ONLY FILLED pixels
     mask = np.zeros_like(label_array, dtype=bool)  # create a mask from the labels
 
-    percent_by_class = np.bincount(label_array[image_array > 0].ravel()) / label_array[label_array > 0].size
+    # percent_by_class = np.bincount(label_array[image_array > 0].ravel()) / label_array[label_array > 0].size
     # print(percent_by_class)
 
     # if stratify:
@@ -248,7 +267,7 @@ def create_mask(label: dict, image: dict, percent: float = 0.01, r=1,
     count_signs = int(label_array[label_array > 0].size * percent)
 
     if mode == 'random':
-        rows, cols = np.where(label_array)
+        rows, cols = np.where(label_array > 0)
         idx = np.random.choice(rows.size, size=count_signs, replace=False)
         idx = (rows[idx], cols[idx])
         mask[idx] = True
@@ -296,8 +315,14 @@ def create_mask(label: dict, image: dict, percent: float = 0.01, r=1,
             for cl in classes:
                 true_px = (label_array > 0) & (label_array == cl)
                 q = np.quantile(homogen_layer[true_px], homogen_percent)
-                true_px = (homogen_layer > 0) & (homogen_layer <= q) & (label_array > 0)
-                homogen_mask[true_px] = 1
+                print(f"q of {cl}: ", q)
+                true_px = (homogen_layer > 0) & (homogen_layer <= q) & true_px
+
+                idx = np.where(true_px)
+                count = int(idx[0].size * percent)
+                i = np.random.choice(idx[0].size, size=count, replace=False)
+                idx = (idx[0][i], idx[1][i])
+                homogen_mask[idx] = 1
 
         if not stratify:
             rows, cols = np.where(homogen_mask)
@@ -330,18 +355,18 @@ def create_mask(label: dict, image: dict, percent: float = 0.01, r=1,
     if verbose:
         print(f"After: mode: {mode} & stratify {stratify}:", np.unique(label_array[mask], return_counts=True))
 
-    output = DEFAULT_PATH['output']
-    name = f'mask_{mode}_r{r}_{percent}'
-    if mode == "homogeneous":
-        name = name + f'hp_{homogen_percent}'
-    if stratify:
-        name = name + '_stratified.tif'
-    else:
-        name = name + '.tif'
-
-    out = label.copy()
-    out['array'] = mask
-    save_tif(out, output + name, with_bg=True, verbose=verbose)
+    if save_mask:
+        output = DEFAULT_PATH['output']
+        name = f'mask_{mode}_r{r}_{percent}'
+        if mode == "homogeneous":
+            name = name + f'hp_{homogen_percent}'
+        if stratify:
+            name = name + '_stratified.tif'
+        else:
+            name = name + '.tif'
+        out = label.copy()
+        out['array'] = mask
+        save_tif(out, output + name, with_bg=True, verbose=verbose)
     if verbose:
         print("Mask created.\n")
 
@@ -402,7 +427,7 @@ def stack_and_zip(signs: list, labels: list, mask: np.ndarray, verbose=True):
 
 
 # Iteration of dataset for training with transform data to tensor.
-def generate_dataset(signs, labels, percent, force=False, mask_mode='random', r=1, homogen_percent=0.01, stratify=False, resize='by_label', verbose=True):
+def generate_dataset(signs, labels, percent, force=False, mask_mode='random', save_mask=False, r=1, homogen_percent=0.01, stratify=False, resize='by_label', verbose=True):
 
     resized_signs, resized_labels = load_resized_data_labels(signs['path'].to_list(), 
                                                              labels['path'].to_list(), 
@@ -415,7 +440,7 @@ def generate_dataset(signs, labels, percent, force=False, mask_mode='random', r=
         modis_label = resized_labels[0]
         if not sentinel_red or not sentinel_nir:
             Exception("You need homogeneous layer, but don't provide red & nir channel")
-        homogeneous = create_homogeneous_layer(sentinel_red, sentinel_nir, modis_label, force=force, verbose=verbose)
+        homogeneous = create_homogeneous_layer(sentinel_red, sentinel_nir, modis_label, resize=resize, force=force, verbose=verbose)
 
     elif mask_mode == 'texture':
         # bad provide data
@@ -426,7 +451,7 @@ def generate_dataset(signs, labels, percent, force=False, mask_mode='random', r=
 
     mask = create_mask(resized_labels[0], resized_signs[0], mode=mask_mode, 
                        percent=percent, stratify=stratify, 
-                       r=r, homogen_layer = homogeneous, homogen_percent=homogen_percent, verbose=verbose)
+                       r=r, homogen_layer = homogeneous, save_mask=save_mask, homogen_percent=homogen_percent, verbose=verbose)
     zip_signs, zip_labels = stack_and_zip(resized_signs, resized_labels, mask, verbose=verbose)
 
     return zip_signs, zip_labels, resized_signs, resized_labels

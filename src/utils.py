@@ -87,10 +87,17 @@ def parse_tifs_from(path:str, typeof:str, force=False, verbose=True):
                 'b11': 'swir1',
                 'b12': 'swir2'
             }
+            # Extract date from fullpath: .../ZONE/2020_06_01/comp_s2_90d_b4_l2a_med.frag.0.tif
+            date_folder = os.path.basename(os.path.dirname(fullpath))
+            date_parts = date_folder.split('_')
+            year = int(date_parts[0]) if len(date_parts) > 0 else None
+            month = int(date_parts[1]) if len(date_parts) > 1 else None
             return {
                 'type': typeof,
                 'period': struct[2],
                 'band': band_map[struct[3]],
+                'year': year,
+                'month': month,
                 'fragment': struct[7],
                 'path': fullpath,
             }
@@ -110,7 +117,11 @@ def parse_tifs_from(path:str, typeof:str, force=False, verbose=True):
         raise ValueError('typeof can be only [sign, label, tile, etalon]')
 
     data = []
-    tifs = glob.glob(os.path.join(path, '*.tif'))
+    if typeof == 'tile':
+        tifs = glob.glob(os.path.join(path, '**', '*.tif'), recursive=True)
+    else:
+        tifs = glob.glob(os.path.join(path, '*.tif'), recursive=True)
+
     for t in tifs:
         name = os.path.basename(t)
         struct = re.split(r'[_.]', name)
@@ -164,6 +175,8 @@ def cut_tif_by(src, by, out, mode='mode', resize=10, aligned=False, verbose=True
         dstNodata=0)
     if verbose:
         print(f"Map cutted and saved to {out}")
+
+    return out
 
 
 def downgrade_classes(src, out, assign_class, force=False, verbose=True):

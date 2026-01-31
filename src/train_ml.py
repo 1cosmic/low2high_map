@@ -37,9 +37,10 @@ def save_model(model, out=None):
 
 def train_model(data, labels, model='RF', save=True, verbose=True):
 
+    mask = labels > 0
     if verbose:
         print("Split X, y -> X_train, y_train...")
-    X_train, X_test, y_train, y_test = train_test_split(data, labels, shuffle=True, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(data[mask], labels[mask], shuffle=True, test_size=0.2, random_state=42)
 
     # TODO: develop it.
     if verbose:
@@ -49,7 +50,7 @@ def train_model(data, labels, model='RF', save=True, verbose=True):
     if verbose:
         print("Model was trained. Start validate it...")
     y_pred = m.predict(X_test)
-    f1 = f1_score(y_test, y_pred, average='weighted')
+    f1 = f1_score(y_test, y_pred, average='macro')
 
     if verbose:
         print("\nClassification Report:")
@@ -66,7 +67,7 @@ def train_model(data, labels, model='RF', save=True, verbose=True):
     return m, classification_report(y_test, y_pred), confusion_matrix(y_test, y_pred), f1
 
 
-def analyse_best_model(config_grid, signs_path, labels_path, store_models=True, verbose=False):
+def analyse_best_model(config_grid, signs_path, labels_path, store_models=True, verbose=False, force=False):
     """
     datasets: dict with keys as param names and values as lists of possible values.
     Example:
@@ -105,7 +106,8 @@ def analyse_best_model(config_grid, signs_path, labels_path, store_models=True, 
             resize=rz,
             stratify=st,
             homogen_percent=hp,
-            verbose=verbose)
+            verbose=verbose,
+            force=force)
         _, count_classes = np.unique(z_y, return_counts=True)
 
         # Train model and measure time

@@ -10,6 +10,7 @@ from utils import save_tif, color_palette, DEFAULT_PATH
 def create_map(images: dict, model, name: str, count_chunks=2, with_time=True):
     # model = joblib.load(model)
     X = np.dstack([img['array'] for img in images])
+
     s_x = X.shape[0]
     s_y = X.shape[1]
     band = X.shape[2]

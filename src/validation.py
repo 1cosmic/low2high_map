@@ -13,18 +13,21 @@ def validate_how_array(predicted, etalon):
     if predicted.shape != etalon.shape:
         raise Exception(f"Shape of 'predicted' {predicted.shape} != {etalon.shape} 'etalon'.")
     
-    mask = predicted > 0
+    mask = (predicted > 0) & (etalon > 0)
     etalon = etalon[mask]
     predicted = predicted[mask]
 
     if len(predicted.shape) > 1:
         predicted = predicted.reshape(-1)
-    elif len(etalon.shape) > 1:
+    if len(etalon.shape) > 1:
         etalon = etalon.reshape(-1)
     
-    return {'report': classification_report(etalon, predicted),
-            'cf_matrix': confusion_matrix(etalon, predicted)}
+    class_report = classification_report(etalon, predicted)
+    cf_matrix = confusion_matrix(etalon, predicted)
 
+    return {'report': class_report,
+        'cf_matrix': cf_matrix,
+        }
 
 def cut_etalons(predicted, etalons, force=False):
     # etalons = glob.glob(os.path.join(etalons, '*.tif'))
@@ -36,9 +39,11 @@ def cut_etalons(predicted, etalons, force=False):
         out = os.path.join(cropped_dir, name)
         cropped_etalons.append(out)
         if not os.path.exists(out) or force:
+            print(etalon, predicted)
             cut_tif_by(etalon, predicted, out, mode='mode')
         else:
             print("Etalons will be loaded from cache.")
+
     return cropped_etalons
 
 
@@ -60,8 +65,9 @@ def validate_how_tif(predicted_path:str, etalons_path:str, force=False):
     return res
 
 
-def create_diff_map(predicted, etalon, mode='positive'):
+def create_diff_map(predicted, etalon, mode='positive', force=False):
     predicted = load_tif(predicted, only_first=True)
+    etalon = cut_etalons(predicted, etalon, force=force)[0]
     etalon = load_tif(etalon, only_first=True)
 
     pred_arr = predicted['array']
